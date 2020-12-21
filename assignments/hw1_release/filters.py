@@ -28,10 +28,14 @@ def conv_nested(image, kernel):
     Hk, Wk = kernel.shape
     out = np.zeros((Hi, Wi))
 
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
-
+    for n in range(Hi):
+        for m in range(Wi):
+            for i in range(Hk):
+                for j in range(Wk):
+                    if (n - i + (Hk - 1) // 2 < 0 or m - j + (Wk - 1) // 2 < 0 or
+                            n - i + (Hk - 1) // 2 >= Hi or m - j + (Wk - 1) // 2 >= Wi): 
+                        continue
+                    out[n][m] += kernel[i][j] * image[n - i + (Hk - 1) // 2][m - j + (Wk - 1) // 2]
     return out
 
 def zero_pad(image, pad_height, pad_width):
@@ -55,9 +59,8 @@ def zero_pad(image, pad_height, pad_width):
     H, W = image.shape
     out = None
 
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    out = np.zeros((H + 2 * pad_height, W + 2 * pad_width), dtype=image.dtype)
+    out[pad_height : H + pad_height, pad_width : W + pad_width] = image
     return out
 
 
@@ -84,9 +87,10 @@ def conv_fast(image, kernel):
     Hk, Wk = kernel.shape
     out = np.zeros((Hi, Wi))
 
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    padded_image = zero_pad(image, Hk // 2, Wk // 2)
+    for n in range(Hi):
+        for m in range(Wi):
+            out[n][m] = np.sum(padded_image[n : n + Hk, m : m + Wk] * np.flip(kernel, (0, 1)))
 
     return out
 
@@ -104,9 +108,7 @@ def cross_correlation(f, g):
     """
 
     out = None
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    out = conv_fast(f, np.flip(g, (1, 0)))
 
     return out
 
@@ -126,9 +128,9 @@ def zero_mean_cross_correlation(f, g):
     """
 
     out = None
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    kernel = np.flip(g, (1, 0))
+    kernel -= np.mean(kernel)
+    out = conv_fast(f, kernel)
 
     return out
 
@@ -150,8 +152,22 @@ def normalized_cross_correlation(f, g):
     """
 
     out = None
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    kernel = g
+    image = f
+
+    kernel -= np.mean(kernel)
+    kernel /= np.std(kernel)
+
+    Hi, Wi = image.shape
+    Hk, Wk = kernel.shape
+    out = np.zeros((Hi, Wi))
+
+    padded_image = zero_pad(image, Hk // 2, Wk // 2)
+    for n in range(Hi):
+        for m in range(Wi):
+            subimage = padded_image[n : n + Hk, m : m + Wk]
+            out[n][m] = np.sum((subimage - np.mean(subimage)) / np.std(subimage) * kernel)
+
+
 
     return out

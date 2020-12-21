@@ -14,10 +14,7 @@ def dot_product(a, b):
     Returns:
         out: numpy array of shape (x, x) (scalar if x = 1)
     """
-    out = None
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    out = np.dot(a, b)
     return out
 
 
@@ -36,10 +33,7 @@ def complicated_matrix_function(M, a, b):
         out: numpy matrix of shape (x, 1).
     """
     out = None
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
-
+    out = dot_product(a, b) * dot_product(M, a.T)
     return out
 
 
@@ -57,9 +51,7 @@ def eigen_decomp(M):
     """
     w = None
     v = None
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    w, v = np.linalg.eig(M)
     return w, v
 
 
@@ -86,10 +78,10 @@ def euclidean_distance_native(u, v):
     #     input arrays. Then, we want to square these differences.
     #     Finally, we want to sum the squares and square root the
     #     sum.
-
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    res = 0
+    for i in range(len(u)):
+        res += (u[i] - v[i]) ** 2
+    return res ** .5
 
 
 def euclidean_distance_numpy(u, v):
@@ -119,9 +111,7 @@ def euclidean_distance_numpy(u, v):
     #     Finally, we want to sum the squares and square root the
     #     sum.
 
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    return np.sqrt(np.sum((v - u) ** 2))
 
 
 def get_eigen_values_and_vectors(M, k):
@@ -143,7 +133,8 @@ def get_eigen_values_and_vectors(M, k):
     """
     eigenvalues = []
     eigenvectors = []
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    w, v = eigen_decomp(M)
+    indcs = np.argsort(np.abs(w))[:k]
+    eigenvalues = list(w[indcs])
+    eigenvectors = list(map(list, v[:, indcs].T))
     return eigenvalues, eigenvectors
