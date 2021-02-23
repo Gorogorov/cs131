@@ -26,8 +26,8 @@ def compute_distances(X1, X2):
     # in particular you should not use functions from scipy.
     #
     # HINT: Try to formulate the l2 distance using matrix multiplication
-
-    pass
+    dists = np.tile(np.sum(X1 ** 2, axis=1), (N, 1)).T + np.tile(np.sum(X2 ** 2, axis=1), (M, 1)) - 2 * X1 @ X2.T
+    dists = np.sqrt(dists)
     # END YOUR CODE
 
     assert dists.shape == (M, N), "dists should have shape (M, N), got %s" % dists.shape
@@ -62,7 +62,11 @@ def predict_labels(dists, y_train, k=1):
     # Hint: Look up the functions numpy.argsort and numpy.bincount
 
     # YOUR CODE HERE
-    pass
+    indeces = np.argsort(dists, axis=1)[:, :k]
+    for i in range(num_test):
+        labels = y_train[indeces[i]]
+        bins = np.bincount(labels)
+        y_pred[i] = np.argmax(bins)
     # END YOUR CODE
 
     return y_pred
@@ -112,7 +116,16 @@ def split_folds(X_train, y_train, num_folds):
 
     # YOUR CODE HERE
     # Hint: You can use the numpy array_split function.
-    pass
+    X_train_splitted = np.array_split(X_train, num_folds)
+    y_train_splitted = np.array_split(y_train, num_folds)
+    #print(y_train_splitted)
+    for i in range(num_folds):
+        X_trains[i] = np.vstack(X_train_splitted[:i] + X_train_splitted[i+1:])
+        y_trains[i] = np.hstack(y_train_splitted[:i] + y_train_splitted[i+1:])
+        X_vals[i] = X_train_splitted[i]
+        y_vals[i] = y_train_splitted[i]
+        #print(y_trains[i])
+        
     # END YOUR CODE
 
     return X_trains, y_trains, X_vals, y_vals

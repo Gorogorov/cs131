@@ -45,7 +45,19 @@ def kmeans(features, k, num_iters=100):
 
     for n in range(num_iters):
         ### YOUR CODE HERE
-        pass
+        prev_assignments = assignments.copy()
+        INF = 1e12
+        for i in range(N):
+            cur_min_dist = INF
+            for j in range(k):
+                if np.linalg.norm(centers[j] - features[i]) < cur_min_dist:
+                    cur_min_dist = np.linalg.norm(centers[j] - features[i])
+                    assignments[i] = j
+        for j in range(k):
+            mask = np.array(list(map(lambda x: x[0], np.argwhere(assignments == j))))
+            centers[j] = np.mean(features[mask], axis=0)
+        if np.sum(prev_assignments == assignments) == 0:
+            break
         ### END YOUR CODE
 
     return assignments
@@ -81,7 +93,15 @@ def kmeans_fast(features, k, num_iters=100):
 
     for n in range(num_iters):
         ### YOUR CODE HERE
-        pass
+        prev_assignments = assignments.copy()
+        dists = cdist(features, centers)
+        assignments = np.argmin(dists, axis=1)
+        for j in range(k):
+            mask = np.array(list(map(lambda x: x[0], np.argwhere(assignments == j))))
+            if np.sum(mask) > 0:
+                centers[j] = np.mean(features[mask], axis=0)
+        if np.sum(prev_assignments == assignments) == 0:
+            break
         ### END YOUR CODE
 
     return assignments
@@ -136,7 +156,21 @@ def hierarchical_clustering(features, k):
 
     while n_clusters > k:
         ### YOUR CODE HERE
-        pass
+        INF = 1e10
+        dists = squareform(pdist(centers))
+        np.fill_diagonal(dists, INF)
+        am = np.argmin(dists)
+        center_i, center_j = int(am // dists.shape[0]), int(am % dists.shape[0])
+        mask_j = np.array(list(map(lambda x: x[0], np.argwhere(assignments == center_j))))
+        assignments[mask_j] = center_i
+        mask_i = np.array(list(map(lambda x: x[0], np.argwhere(assignments == center_i))))
+        centers[center_i] = np.mean(features[mask_i], axis=0)
+        if center_j != n_clusters - 1:
+            centers[center_j] = centers[n_clusters-1]
+            mask_last = np.array(list(map(lambda x: x[0], np.argwhere(assignments == n_clusters-1))))
+            assignments[mask_last] = center_j
+        centers = np.delete(centers, n_clusters-1, 0)
+        n_clusters -= 1
         ### END YOUR CODE
 
     return assignments
@@ -157,7 +191,7 @@ def color_features(img):
     features = np.zeros((H*W, C))
 
     ### YOUR CODE HERE
-    pass
+    features = img.reshape(H * W, C)
     ### END YOUR CODE
 
     return features
@@ -186,7 +220,12 @@ def color_position_features(img):
     features = np.zeros((H*W, C+2))
 
     ### YOUR CODE HERE
-    pass
+    features[:, :C] = img.reshape(H * W, C)
+    features[:, C] = np.repeat(np.arange(0, H), W)
+    features[:, C+1] = np.tile(np.arange(0, W), H)
+    means = np.mean(features, axis=0)
+    stds = np.std(features, axis=0)
+    features = (features - means.reshape(1, -1)) / stds.reshape(1, -1)
     ### END YOUR CODE
 
     return features
@@ -226,7 +265,7 @@ def compute_accuracy(mask_gt, mask):
 
     accuracy = None
     ### YOUR CODE HERE
-    pass
+    accuracy = np.sum(np.where(mask_gt == mask, 1, 0)) / (mask.shape[0] * mask.shape[1])
     ### END YOUR CODE
 
     return accuracy

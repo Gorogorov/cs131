@@ -48,7 +48,20 @@ def lucas_kanade(img1, img2, keypoints, window_size=5):
         y, x = int(round(y)), int(round(x))
 
         ### YOUR CODE HERE
-        pass
+        N, M = img1.shape
+        x, y = y, x
+        A = np.zeros((window_size * window_size, 2))
+        b = np.zeros((window_size * window_size, 1))
+        for i in range(window_size * window_size):
+            dx = int(i // window_size) - int(w)
+            dy = i % window_size - int(w)
+            if (x + dx >= N or x + dx < 0 or y + dy >= M or y + dy < 0):
+                continue
+            A[i][0] = Iy[x + dx][y + dy]
+            A[i][1] = Ix[x + dx][y + dy]
+            b[i][0] = -It[x + dx][y + dy]
+        v = np.linalg.inv(A.T @ A) @ A.T @ b
+        flow_vectors.append(v.flatten())
         ### END YOUR CODE
 
     flow_vectors = np.array(flow_vectors)
@@ -83,16 +96,26 @@ def iterative_lucas_kanade(img1, img2, keypoints, window_size=9, num_iters=7, g=
     w = window_size // 2
 
     # Compute spatial gradients
-    Iy, Ix = np.gradient(img1)
+    Ix, Iy = np.gradient(img1)
 
-    for y, x, gy, gx in np.hstack((keypoints, g)):
+    for x, y, gx, gy in np.hstack((keypoints, g)):
         v = np.zeros(2)  # Initialize flow vector as zero vector
         y1 = int(round(y))
         x1 = int(round(x))
 
         # TODO: Compute inverse of G at point (x1, y1)
         ### YOUR CODE HERE
-        pass
+        N, M = img1.shape
+        G = np.zeros((2, 2))
+        for i in range(window_size * window_size):
+            dx = int(i // window_size) - int(w)
+            dy = i % window_size - int(w)
+            if (x + dx >= N or x + dx < 0 or y + dy >= M or y + dy < 0):
+                continue
+            G[0][0] += Ix[x1 + dx][y1 + dy] ** 2
+            G[0][1] += Iy[x1 + dx][y1 + dy] * Ix[x1 + dx][y1 + dy]
+            G[1][0] += Iy[x1 + dx][y1 + dy] * Ix[x1 + dx][y1 + dy]
+            G[1][1] += Iy[x1 + dx][y1 + dy] ** 2
         ### END YOUR CODE
 
         # Iteratively update flow vector
@@ -104,14 +127,26 @@ def iterative_lucas_kanade(img1, img2, keypoints, window_size=9, num_iters=7, g=
 
             # TODO: Compute bk and vk = inv(G) x bk
             ### YOUR CODE HERE
-            pass
+            N, M = img1.shape
+            bk = np.zeros(2)
+            for i in range(window_size * window_size):
+                dx = int(i // window_size) - int(w)
+                dy = i % window_size - int(w)
+                if x1 + dx >= N or x1 + dx < 0 or y1 + dy >= M or y1 + dy < 0:
+                    continue
+                if x2 + dx >= N or x2 + dx < 0 or y2 + dy >= M or y2 + dy < 0:
+                    continue
+                dk = img1[x1 + dx][y1 + dy] - img2[x2 + dx][y2 + dy]
+                bk[0] += dk * Ix[x1 + dx][y1 + dy]
+                bk[1] += dk * Iy[x1 + dx][y1 + dy]
+            vk = (np.linalg.inv(G) @ bk)
             ### END YOUR CODE
 
             # Update flow vector by vk
             v += vk
 
         vx, vy = v
-        flow_vectors.append([vy, vx])
+        flow_vectors.append([vx, vy])
 
     return np.array(flow_vectors)
 
@@ -145,7 +180,11 @@ def pyramid_lucas_kanade(
 
     for L in range(level, -1, -1):
         ### YOUR CODE HERE
-        pass
+        p = keypoints / scale ** L
+        d = iterative_lucas_kanade(pyramid1[L], pyramid2[L], p, window_size=window_size,
+                                   num_iters=num_iters, g=g)
+        if L > 0:
+            g = scale * (g + d)
         ### END YOUR CODE
 
     d = g + d
@@ -167,7 +206,7 @@ def compute_error(patch1, patch2):
     assert patch1.shape == patch2.shape, "Different patch shapes"
     error = 0
     ### YOUR CODE HERE
-    pass
+    error = np.mean(np.square((patch1 - patch1.mean()) / patch1.std() - (patch2 - patch2.mean()) / patch2.std()))
     ### END YOUR CODE
     return error
 
@@ -258,7 +297,23 @@ def IoU(bbox1, bbox2):
     score = 0
 
     ### YOUR CODE HERE
-    pass
+    xmin = min(x1, x2)
+    xmax = max(x1 + w1, x2 + w2)
+    ymin = min(y1 - h1, y2 - h2)
+    ymax = max(y1, y2)
+    union = 0
+    intersec = 0
+    for x in range(xmin, xmax + 1):
+        for y in range(ymin, ymax + 1):
+            if (x >= x1 and x < x1 + w1 and y <= y1 and y > y1 - h2
+                and
+                x >= x2 and x < x2 + w2 and y <= y2 and y > y2 - h2):
+                intersec += 1
+            if (x >= x1 and x < x1 + w1 and y <= y1 and y > y1 - h2
+                or
+                x >= x2 and x < x2 + w2 and y <= y2 and y > y2 - h2):
+                union += 1
+    score = intersec / union
     ### END YOUR CODE
 
     return score

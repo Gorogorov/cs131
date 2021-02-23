@@ -53,7 +53,15 @@ def harris_corners(img, window_size=3, k=0.04):
     dy = filters.sobel_h(img)
 
     ### YOUR CODE HERE
-    pass
+    dxx = dx ** 2
+    dyy = dy ** 2
+    dxy = dx * dy
+
+    M11 = convolve(dxx, window, mode='constant', cval=0)
+    M22 = convolve(dyy, window, mode='constant', cval=0)
+    M12 = convolve(dxy, window, mode='constant', cval=0)
+
+    response = M11 * M22 - (M12 ** 2) - k * (M11 + M22) ** 2
     ### END YOUR CODE
 
     return response
@@ -79,7 +87,9 @@ def simple_descriptor(patch):
     """
     feature = []
     ### YOUR CODE HERE
-    pass
+    modif_std = np.std(patch)
+    modif_std = np.where(modif_std == 0, 1, modif_std)
+    feature = list(((patch - np.mean(patch)) / modif_std).reshape(-1))
     ### END YOUR CODE
     return feature
 
@@ -134,7 +144,12 @@ def match_descriptors(desc1, desc2, threshold=0.5):
     dists = cdist(desc1, desc2)
 
     ### YOUR CODE HERE
-    pass
+    dists_ratio = np.sort(dists, axis=1)[:, 0] / np.sort(dists, axis=1)[:, 1]
+    matches = np.zeros((M, 2), dtype=np.int)
+    matches[:, 0] = np.arange(0, M)
+    matches[:, 1] = np.argmin(dists, axis=1)
+    mask = dists_ratio < threshold
+    matches = matches[mask, :]
     ### END YOUR CODE
 
     return matches
@@ -167,7 +182,7 @@ def fit_affine_matrix(p1, p2):
     p2 = pad(p2)
 
     ### YOUR CODE HERE
-    pass
+    H, _, _, _ = np.linalg.lstsq(p2, p1, rcond=None)
     ### END YOUR CODE
 
     # Sometimes numerical issues cause least-squares to produce the last
@@ -238,7 +253,27 @@ def ransac(keypoints1, keypoints2, matches, n_iters=200, threshold=20):
     '''
 
     ### YOUR CODE HERE
-    pass
+    for i in range(n_iters):
+        np.random.shuffle(matches)
+        samples = matches[:n_samples]
+        points1 = keypoints1[samples[:,0]]
+        points2 = keypoints2[samples[:,1]]
+        H = fit_affine_matrix(points1, points2)
+        all_points1 = keypoints1[orig_matches[:, 0]]
+        all_points2 = pad(keypoints2[orig_matches[:, 1]])
+        all_points1_est = all_points2 @ H
+        dists = np.linalg.norm(all_points1_est[:, :2] - all_points1, axis=1)
+        cur_n_inliers = np.sum(np.where(dists < threshold, 1, 0))
+
+        if cur_n_inliers > n_inliers:
+            n_inliers = cur_n_inliers
+            max_inliers = np.array(list(map(lambda x: x[0], np.argwhere(dists < threshold))))
+
+    samples = orig_matches[max_inliers]
+    points1 = keypoints1[samples[:,0]]
+    points2 = keypoints2[samples[:,1]]
+    H = fit_affine_matrix(points1, points2)
+
     ### END YOUR CODE
     return H, orig_matches[max_inliers]
 
@@ -289,9 +324,33 @@ def hog_descriptor(patch, pixels_per_cell=(8,8)):
 
     # Compute histogram per cell
     ### YOUR CODE HERE
-    pass
-    ### YOUR CODE HERE
+    #print(G_cells.shape)
+    #print(theta_cells)
+    #print(cells.shape)
+    for i in range(rows):
+        for j in range(cols):
+            for n in range(pixels_per_cell[0]):
+                for m in range(pixels_per_cell[1]):
+                    left_point = int((theta_cells[i][j][n][m] // degrees_per_bin) % 9)
+                    right_point = int((left_point + 1) % 9)
+                    #print(left_point, right_point)
+                    #print(theta_cells[i][j][n][m])
+                    #print(G_cells[i][j][n][m])
+                    #print(((left_point + 1) * 20 - theta_cells[i][j][n][m]) / 20 * G_cells[i][j][n][m])
+                    #print((theta_cells[i][j][n][m] - left_point * 20) / 20 * G_cells[i][j][n][m])
+                    #print()
+                    #print((theta_cells[i][j][n][m] - left_point * 20) / 20 * G_cells[i][j][n][m])
+                    cells[i][j][right_point] += (theta_cells[i][j][n][m] - left_point * degrees_per_bin) / degrees_per_bin * G_cells[i][j][n][m]
+                    cells[i][j][left_point] += ((left_point + 1) * degrees_per_bin - theta_cells[i][j][n][m]) / degrees_per_bin * G_cells[i][j][n][m]
 
+    #for i in range(rows):
+    #    for j in range(cols):
+    #        print(cells[i][j])
+                    
+    ### YOUR CODE HERE
+    block = cells.reshape(-1)
+    block = block / np.linalg.norm(block)
+    #print(block.shape)
     return block
 
 
@@ -325,7 +384,17 @@ def linear_blend(img1_warped, img2_warped):
     left_margin = np.argmax(img2_mask[out_H//2, :].reshape(1, out_W), 1)[0]
 
     ### YOUR CODE HERE
-    pass
+    weights1 = np.ones((img1_warped.shape))
+    weights2 = np.ones((img2_warped.shape))
+    x = np.linspace(0, 1, right_margin - left_margin)
+    #a = np.tile(x[::-1], (weights1.shape[0], 1))
+    #print(a.shape)
+    weights1[:, left_margin:right_margin] = np.tile(x[::-1], (weights1.shape[0], 1))
+    weights1[:, right_margin:] = 0
+    weights2[:, left_margin:right_margin] = np.tile(x, (weights2.shape[0], 1))
+    weights2[:, :left_margin] = 0
+
+    merged = weights1 * img1_warped + weights2 * img2_warped
     ### END YOUR CODE
 
     return merged
@@ -366,7 +435,31 @@ def stitch_multiple_images(imgs, desc_func=simple_descriptor, patch_size=5):
         matches.append(mtchs)
 
     ### YOUR CODE HERE
-    pass
+    Hs = []
+    Hprev = np.eye(3)
+    for i in range(len(imgs)-1):
+        H, robust_matches = ransac(keypoints[i], keypoints[i+1], matches[i], threshold=40)
+        H = Hprev @ np.linalg.inv(H)
+        Hs.append(H)
+
+    output_shape, offset = get_output_space(imgs[0], imgs[1:], Hs)
+    
+    img_warped = warp_image(imgs[0], np.eye(3), output_shape, offset)
+    img_mask = (img_warped != -1)
+    img_warped[~img_mask] = 0
+
+    panorama = img_warped
+    overlap = img_mask
+
+    for i in range(len(imgs)-1):
+        img_warped = warp_image(imgs[i+1], Hs[i], output_shape, offset)
+        img_mask = (img_warped != -1)
+        img_warped[~img_mask] = 0
+
+        panorama += img_warped
+        overlap += img_mask
+    
+    panorama = panorama / np.maximum(overlap, 1)
     ### END YOUR CODE
 
     return panorama
